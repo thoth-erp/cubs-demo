@@ -10,7 +10,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useLocation } from "wouter";
 import {
   Package, Plus, Search, Trash2, Edit3, Layers, ShoppingCart, Sparkles,
-  Boxes, AlertTriangle, CheckCircle2, Info, Upload, Download,
+  Boxes, AlertTriangle, CheckCircle2, Info, Upload, Download, Tag, Check,
 } from "lucide-react";
 import { CATEGORIES, categoryById, tx, type Bi } from "../../lib/cubs/catalog";
 import {
@@ -20,6 +20,7 @@ import {
 import {
   PageHeader, Modal, EmptyState, inputCls, inputErrorCls, selectCls, labelCls, btnPrimary, btnSecondary, btnGhost, cardCls, chipCls, money, FieldError,
 } from "../../components/cubs/ui";
+import { categoryById as catById } from "../../lib/cubs/catalog";
 
 // ─── Info tooltips ──────────────────────────────────────────
 
@@ -87,7 +88,7 @@ function skuFor(categoryId: string, existing: Product[]): string {
   return `${code}-${String(n).padStart(3, "0")}`;
 }
 
-// ─── BOM line editor (supports both RM and custom) ─────────
+// ─── BOM line editor — Visual card-based picker ───────────
 
 function BomEditor({ bom, setBom, rawMaterials, lang }: {
   bom: BOMLine[]; setBom: (b: BOMLine[]) => void; rawMaterials: RawMaterial[]; lang: "en" | "ar";
@@ -102,12 +103,10 @@ function BomEditor({ bom, setBom, rawMaterials, lang }: {
   const [customCost, setCustomCost] = useState<number>(0);
   const [customUnit, setCustomUnit] = useState("pc");
   const [rmSearch, setRmSearch] = useState("");
-  const [varSearch, setVarSearch] = useState("");
-  const [showErrors, setShowErrors] = useState(false);
+  const [expandedRm, setExpandedRm] = useState<string | null>(null);
 
   const rm = rawMaterials.find((r) => r.id === rmId);
   const filteredRms = rawMaterials.filter((r) => !rmSearch || r.name.toLowerCase().includes(rmSearch.toLowerCase()) || (r.nameAr || "").includes(rmSearch));
-  const filteredVars = rm?.variants.filter((v) => !varSearch || v.sku.toLowerCase().includes(varSearch.toLowerCase())) || [];
 
   const addMaterial = () => {
     if (!rmId || !varId || qty <= 0) return;
@@ -123,110 +122,145 @@ function BomEditor({ bom, setBom, rawMaterials, lang }: {
   };
 
   return (
-    <div className="rounded-xl border border-border/60 overflow-hidden">
-      <div className="px-4 py-2.5 bg-muted/40 border-b border-border/50 flex items-center gap-2">
+    <div className="rounded-2xl border border-border/60 overflow-hidden">
+      <div className="px-4 py-3 bg-muted/40 border-b border-border/50 flex items-center gap-2">
         <Boxes size={15} className="text-primary" />
         <span className="text-[13px] font-semibold">{ar ? "قائمة المواد (BOM)" : "Bill of materials"}</span>
-        <InfoTip field="bom" lang={lang} />
+        {bom.length > 0 && <span className="text-[11px] text-muted-foreground">· {bom.length} {ar ? "بنود" : "items"}</span>}
       </div>
-      <div className="p-4 space-y-3">
-        {/* Mode toggle */}
-        <div className="inline-flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
+      <div className="p-4 space-y-4">
+        {/* Mode tabs */}
+        <div className="flex gap-2">
           <button type="button" onClick={() => setMode("material")}
-            className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition ${mode === "material" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-            {ar ? "مادة خام" : "Material"}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-[12.5px] font-medium transition-all ${mode === "material" ? "border-primary bg-primary/5 text-foreground shadow-sm" : "border-border/50 text-muted-foreground hover:border-border"}`}>
+            <Layers size={14} />{ar ? "مادة خام" : "Raw Material"}
           </button>
           <button type="button" onClick={() => setMode("custom")}
-            className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition ${mode === "custom" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-            {ar ? "بند مخصص" : "Custom item"} <InfoTip field="bomCustom" lang={lang} />
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-[12.5px] font-medium transition-all ${mode === "custom" ? "border-amber-400 bg-amber-50 dark:bg-amber-500/10 text-foreground shadow-sm" : "border-border/50 text-muted-foreground hover:border-border"}`}>
+            <Tag size={14} />{ar ? "بند مخصص" : "Custom item"}
           </button>
         </div>
 
         {mode === "material" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
-            <div>
-              <label className={labelCls}>{ar ? "المادة الخام" : "Raw material"}</label>
-              <div className="relative">
-                <Search size={13} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
-                <select className={selectCls + " ps-8"} value={rmId} onChange={(e) => { setRmId(e.target.value); setVarId(""); }}>
-                  <option value="">{ar ? "اختر" : "Select"}</option>
-                  {filteredRms.map((r) => <option key={r.id} value={r.id}>{ar ? (r.nameAr || r.name) : r.name}</option>)}
-                </select>
+          <div className="space-y-3">
+            {/* Search */}
+            <div className="relative">
+              <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+              <input className={inputCls + " ps-9"} placeholder={ar ? "بحث في المواد الخام..." : "Search raw materials..."} value={rmSearch} onChange={(e) => setRmSearch(e.target.value)} />
+            </div>
+
+            {/* Material cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[240px] overflow-y-auto">
+              {filteredRms.map((r) => {
+                const active = rmId === r.id;
+                const totalStock = r.variants.reduce((s, v) => s + v.stock, 0);
+                return (
+                  <button key={r.id} type="button" onClick={() => { setRmId(r.id); setVarId(""); }}
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border-2 text-start transition-all ${active ? "border-primary bg-primary/5 shadow-sm" : "border-border/40 hover:border-border hover:bg-muted/20"}`}>
+                    {active && <div className="absolute top-2 end-2 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><Check size={12} /></div>}
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Layers size={16} className="text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] font-semibold text-foreground truncate">{ar ? (r.nameAr || r.name) : r.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{r.variants.length} {ar ? "متغيرات" : "vars"} · {totalStock.toLocaleString()} {ar ? r.unitAr : r.unitEn}</p>
+                    </div>
+                  </button>
+                );
+              })}
+              {filteredRms.length === 0 && (
+                <div className="sm:col-span-2 text-center py-6 text-[12px] text-muted-foreground">
+                  {ar ? "لا توجد مواد خام" : "No raw materials found"}
+                </div>
+              )}
+            </div>
+
+            {/* Variant selector */}
+            {rm && (
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-2">
+                <p className="text-[11px] font-medium text-muted-foreground">{ar ? "اختر المتغير" : "Select variant"} — <span className="font-semibold text-foreground">{ar ? (rm.nameAr || rm.name) : rm.name}</span></p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-[120px] overflow-y-auto">
+                  {rm.variants.map((v) => {
+                    const active = varId === v.id;
+                    const low = v.reorderPoint > 0 && v.stock <= v.reorderPoint;
+                    return (
+                      <button key={v.id} type="button" onClick={() => setVarId(v.id)}
+                        className={`relative flex items-center gap-2 px-2.5 py-2 rounded-lg border text-[11px] transition ${active ? "border-primary bg-primary/5" : "border-border/40 hover:border-border"}`}>
+                        {v.colourHex && <span className="w-4 h-4 rounded border border-border/50 shrink-0" style={{ backgroundColor: v.colourHex }} />}
+                        <div className="min-w-0 text-start">
+                          <p className="font-mono font-semibold truncate">{v.sku}</p>
+                          <p className="text-muted-foreground">{v.stock} {ar ? rm.unitAr : rm.unitEn} · {money(v.cost, lang)}</p>
+                        </div>
+                        {low && <span className="absolute top-0.5 end-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            <div>
-              <label className={labelCls}>{ar ? "المتغير" : "Variant"}</label>
-              <select className={selectCls} value={varId} disabled={!rm} onChange={(e) => setVarId(e.target.value)}>
-                <option value="">{ar ? "اختر" : "Select"}</option>
-                {filteredVars.map((v) => <option key={v.id} value={v.id}>{v.sku} · {money(v.cost, lang)}</option>)}
-              </select>
-            </div>
-            <div className="w-24">
-              <label className={labelCls}>{ar ? "الكمية" : "Qty"}</label>
-              <input type="number" className={inputCls} value={qty || ""} onChange={(e) => setQty(Number(e.target.value))} />
-            </div>
-            <button type="button" className={btnPrimary + " h-10"} disabled={!varId} onClick={addMaterial}><Plus size={14} />{ar ? "إضافة" : "Add"}</button>
+            )}
+
+            {/* Qty + Add */}
+            {varId && (
+              <div className="flex items-end gap-3">
+                <div className="w-24">
+                  <label className={labelCls}>{ar ? "الكمية" : "Qty"}</label>
+                  <input type="number" className={inputCls} value={qty || ""} onChange={(e) => setQty(Number(e.target.value))} min="1" />
+                </div>
+                <button type="button" className={btnPrimary + " h-10"} onClick={addMaterial}><Plus size={14} />{ar ? "إضافة" : "Add"}</button>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-end">
-            <div>
-              <label className={labelCls}>{ar ? "اسم البند (EN)" : "Item name (EN)"}</label>
-              <input className={inputCls} value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder={ar ? "مثال: تغليف" : "e.g. Packaging"} />
+          /* Custom item */
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <div className="sm:col-span-2">
+              <label className={labelCls}>{ar ? "اسم البند" : "Item name"}</label>
+              <input className={inputCls} value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder={ar ? "مثال: تغليف، ليبل" : "e.g. Packaging, Labels"} />
             </div>
             <div>
-              <label className={labelCls}>{ar ? "اسم البند (AR)" : "Item name (AR)"}</label>
-              <input className={inputCls} dir="rtl" value={customNameAr} onChange={(e) => setCustomNameAr(e.target.value)} />
-            </div>
-            <div className="w-24">
               <label className={labelCls}>{ar ? "التكلفة" : "Cost"}</label>
               <input type="number" className={inputCls} value={customCost || ""} onChange={(e) => setCustomCost(Number(e.target.value))} placeholder="0" />
             </div>
-            <div className="w-20">
-              <label className={labelCls}>{ar ? "الكمية" : "Qty"}</label>
-              <input type="number" className={inputCls} value={qty || ""} onChange={(e) => setQty(Number(e.target.value))} />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className={labelCls}>{ar ? "الكمية" : "Qty"}</label>
+                <input type="number" className={inputCls} value={qty || ""} onChange={(e) => setQty(Number(e.target.value))} min="1" />
+              </div>
+              <button type="button" className={btnPrimary + " h-10"} disabled={!customName.trim()} onClick={addCustom}><Plus size={14} /></button>
             </div>
-            <button type="button" className={btnPrimary + " h-10"} disabled={!customName.trim()} onClick={addCustom}><Plus size={14} />{ar ? "إضافة" : "Add"}</button>
           </div>
         )}
 
+        {/* BOM items list */}
         {bom.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-border/50">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40 text-muted-foreground">
-                <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-start [&>th]:font-medium">
-                  <th>{ar ? "البند" : "Item"}</th><th>{ar ? "النوع" : "Type"}</th><th>{ar ? "الكمية/وحدة" : "Qty/unit"}</th><th>{ar ? "تكلفة السطر" : "Line cost"}</th><th></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {bom.map((b, i) => {
-                  if (b.refType === "custom") {
-                    return (
-                      <tr key={i} className="[&>td]:px-3 [&>td]:py-2">
-                        <td className="font-medium">{ar ? (b.customNameAr || b.customName) : b.customName}</td>
-                        <td><span className={chipCls + " text-[10px] py-0.5"}>{ar ? "مخصص" : "Custom"}</span></td>
-                        <td>{b.qty} {b.customUnit || "pc"}</td>
-                        <td>{money((b.customCost || 0) * b.qty, lang)}</td>
-                        <td><button className={btnGhost} onClick={() => setBom(bom.filter((_, j) => j !== i))}><Trash2 size={13} /></button></td>
-                      </tr>
-                    );
-                  }
-                  const r = rawMaterials.find((x) => x.id === b.rawMaterialId);
-                  const v = r?.variants.find((x) => x.id === b.variantId);
-                  return (
-                    <tr key={i} className="[&>td]:px-3 [&>td]:py-2">
-                      <td className="flex items-center gap-2">
-                        {v?.colourHex && <span className="inline-block w-4 h-4 rounded border border-border/60 bg-cover bg-center" style={{ backgroundColor: v.colourHex, backgroundImage: v.colourCard ? `url(${v.colourCard})` : undefined }} />}
-                        {r ? (ar ? (r.nameAr || r.name) : r.name) : "—"}
-                      </td>
-                      <td><span className={chipCls + " text-[10px] py-0.5"}>{ar ? "خام" : "Material"}</span></td>
-                      <td>{b.qty} {r ? (ar ? r.unitAr : r.unitEn) : ""}</td>
-                      <td>{money((v?.cost ?? 0) * b.qty, lang)}</td>
-                      <td><button className={btnGhost} onClick={() => setBom(bom.filter((_, j) => j !== i))}><Trash2 size={13} /></button></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-medium text-muted-foreground">{ar ? "البنود المضافة" : "Added items"}</p>
+            {bom.map((b, i) => {
+              if (b.refType === "custom") {
+                return (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/50">
+                    <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center shrink-0"><Tag size={13} className="text-amber-600" /></span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-medium truncate">{ar ? (b.customNameAr || b.customName) : b.customName}</p>
+                      <p className="text-[11px] text-muted-foreground">{b.qty} × {money(b.customCost || 0, lang)} = {money((b.customCost || 0) * b.qty, lang)}</p>
+                    </div>
+                    <button className="text-muted-foreground hover:text-red-500 transition" onClick={() => setBom(bom.filter((_, j) => j !== i))}><Trash2 size={13} /></button>
+                  </div>
+                );
+              }
+              const r = rawMaterials.find((x) => x.id === b.rawMaterialId);
+              const v = r?.variants.find((x) => x.id === b.variantId);
+              return (
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-violet-50/50 dark:bg-violet-500/5 border border-violet-200/50">
+                  {v?.colourHex && <span className="w-8 h-8 rounded-lg border border-border/50 shrink-0" style={{ backgroundColor: v.colourHex }} />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium truncate">{r ? (ar ? (r.nameAr || r.name) : r.name) : "—"}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">{v?.sku} · {b.qty} × {money(v?.cost || 0, lang)} = {money((v?.cost || 0) * b.qty, lang)}</p>
+                  </div>
+                  <button className="text-muted-foreground hover:text-red-500 transition" onClick={() => setBom(bom.filter((_, j) => j !== i))}><Trash2 size={13} /></button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
