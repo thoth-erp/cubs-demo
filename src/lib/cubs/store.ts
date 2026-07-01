@@ -110,13 +110,27 @@ export interface CubsState {
   orders: Order[];
 }
 
-// ─── In-memory state ────────────────────────────────────────
+// ─── Persistence ────────────────────────────────────────
 
-let state: CubsState = seed();
+const STORAGE_KEY = "cubs_demo_v1";
+
+function load(): CubsState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as CubsState;
+  } catch { /* ignore */ }
+  return seed();
+}
+
+function persist() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+}
+
+let state: CubsState = typeof window !== "undefined" ? load() : seed();
 const listeners = new Set<() => void>();
 
 function emit() { listeners.forEach((l) => l()); }
-function set(next: CubsState) { state = next; emit(); }
+function set(next: CubsState) { state = next; persist(); emit(); }
 
 export function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 export function getState(): CubsState { return state; }
