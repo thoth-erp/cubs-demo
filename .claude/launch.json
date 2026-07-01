@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "thoth",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--host", "0.0.0.0", "--port", "5174"],
+      "port": 5174,
+      "cwd": "/Users/dan/Downloads/THOTH-Production-Ready"
+    },
+    {
+      "name": "thoth-demo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["VITE_SUPABASE_URL=", "VITE_SUPABASE_ANON_KEY=", "npx", "vite", "--host", "0.0.0.0", "--port", "5175"],
+      "port": 5175,
+      "cwd": "/Users/dan/Downloads/THOTH-Production-Ready"
+    },
+    {
+      "name": "fashion-demo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["VITE_SUPABASE_URL=", "VITE_SUPABASE_ANON_KEY=", "npx", "vite", "--host", "0.0.0.0", "--port", "5176"],
+      "port": 5176,
+      "cwd": "/Users/dan/Desktop/thoth master file"
+    }
+  ]
+}

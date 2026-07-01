@@ -1,0 +1,100 @@
+import { memo } from "react";
+
+type LogoVariant = "mark" | "wordmark" | "full";
+type LogoTheme = "dark" | "light" | "gold";
+
+interface LogoProps {
+  variant?: LogoVariant;
+  theme?: LogoTheme;
+  size?: number;
+  className?: string;
+}
+
+const colors: Record<LogoTheme, { primary: string; secondary: string; text: string }> = {
+  dark:  { primary: "#2E3036", secondary: "#8B72A7", text: "#2E3036" },
+  light: { primary: "#F9F8F4", secondary: "#8B72A7", text: "#F9F8F4" },
+  gold:  { primary: "#C9A96E", secondary: "#8B72A7", text: "#C9A96E" },
+};
+
+function IbisMark({ size, theme }: { size: number; theme: LogoTheme }) {
+  const c = colors[theme];
+  const s = size;
+  const vb = "0 0 446 596";
+
+  return (
+    <svg
+      width={s}
+      height={Math.round(s * (596 / 446))}
+      viewBox={vb}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="248.743" cy="134.661" r="134.661" fill={c.primary} />
+      <circle
+        cx="26.5073"
+        cy="26.5073"
+        r="26.5073"
+        transform="matrix(1 0 0 -1 234.653 143.724)"
+        fill={theme === "light" ? "#2E3036" : "#F7F6F4"}
+      />
+      <path
+        d="M240.099 83.1536C262 69.1197 294.863 68.573 319.811 73.9713C383.905 85.0048 428.393 139.848 440.115 201.554C443.542 219.581 442.808 238.935 442.808 257.232L442.796 319.168L442.804 442.224C442.804 451.577 442.856 461.062 442.889 470.558H231.183L231.187 407.828L231.153 361.935C231.146 353.947 231.072 345.877 231.168 337.936C231.546 306.552 239.354 277.957 255.951 251.213C267.156 233.159 293.22 193.894 284.172 172.114C282.114 167.032 278.078 163.003 272.992 160.955C266.767 158.483 260.073 158.977 253.546 158.95C226.284 158.836 203.748 164.994 178.778 175.67C109.836 205.149 50.5593 252.94 15.9083 320.322C10.4219 330.991 6.86052 339.561 2.36035 350.612C3.66508 332.726 12.3456 309.584 19.6071 293.366C52.324 220.299 118.836 168.408 189.043 133.675C194.523 130.964 200.086 128.383 205.083 124.839C212.411 119.782 214.603 112.284 218.877 104.943C224.122 96.0992 231.397 88.6303 240.099 83.1536ZM279.398 108.857C272.82 108.909 261.083 108.492 255.133 109.046C248.561 111.447 243.996 118.843 238.978 124.105C244.235 124.129 258.542 124.492 263.009 123.722C270.139 119.939 273.986 114.834 279.398 108.857Z"
+        fill={c.secondary}
+      />
+      <path
+        d="M319.811 73.9714C383.905 85.0049 428.394 139.848 440.115 201.554C443.543 219.582 442.809 238.935 442.809 257.232L442.796 319.168L442.805 442.224C442.805 451.577 442.856 461.062 442.889 470.558H394.914C381.09 447.049 367.496 423.408 354.133 399.636C327.158 351.011 301.349 305.648 311.119 247.792C316.913 213.481 335.025 189.518 339.719 154.96C343.575 126.566 337.161 96.9714 319.811 73.9714Z"
+        fill={c.secondary}
+      />
+      <path
+        d="M219.291 540.563C224.019 538.532 229.506 540.686 231.606 545.391C233.698 550.096 231.621 555.614 226.947 557.775C223.866 559.2 220.257 558.848 217.498 556.863C214.739 554.886 213.268 551.568 213.636 548.196C214.011 544.816 216.165 541.904 219.291 540.563Z"
+        fill={c.secondary}
+      />
+    </svg>
+  );
+}
+
+function _Logo({ variant = "mark", theme = "dark", size = 20, className = "" }: LogoProps) {
+  const c = colors[theme];
+
+  if (variant === "mark") {
+    return (
+      <IbisMark size={size} theme={theme} />
+    );
+  }
+
+  if (variant === "wordmark") {
+    return (
+      <span
+        className={`tracking-[0.12em] font-medium leading-none ${className}`}
+        style={{
+          fontFamily: "var(--app-font-serif)",
+          fontSize: size,
+          color: c.text,
+        }}
+      >
+        THOTH
+      </span>
+    );
+  }
+
+  // variant === "full"
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <IbisMark size={size} theme={theme} />
+      <span
+        className="tracking-[0.12em] font-medium leading-none"
+        style={{
+          fontFamily: "var(--app-font-serif)",
+          fontSize: Math.round(size * 0.9),
+          color: c.text,
+        }}
+      >
+        THOTH
+      </span>
+    </div>
+  );
+}
+
+export const Logo = memo(_Logo);

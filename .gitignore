@@ -1,0 +1,8 @@
+node_modules
+dist
+.env.local
+.env*.bak
+.env.local.bak
+.tsbuildinfo
+.DS_Store
+.vscode
